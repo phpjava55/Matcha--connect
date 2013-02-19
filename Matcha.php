@@ -20,7 +20,6 @@
 include_once('MatchaAudit.php');
 include_once('MatchaCUP.php');
 include_once('MatchaErrorHandler.php');
-
 class Matcha
 {
 	 
@@ -64,6 +63,7 @@ class Matcha
 				PDO::ATTR_PERSISTENT => true
 			));
 			self::$__conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+			self::$__conn->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
 			// check if the database exist.
 			self::__createDatabase($dbName);
 			self::$__conn->query('USE '.$dbName.';');
@@ -86,8 +86,9 @@ class Matcha
 	 	{
 	 		if(self::__SenchaModel($senchaModel))
 			{
-				$matcha = new MatchaCUP();
-				return $matcha;
+				$MatchaCUP = new MatchaCUP;
+				$MatchaCUP->setModel(self::$__senchaModel);
+				return $MatchaCUP;
 			}
 		}
 		catch(Exception $e)
@@ -250,7 +251,6 @@ class Matcha
 			$fileModel = str_replace('.', '/', $fileModel);
 			if(!file_exists(self::$__app.'/'.$fileModel.'.js')) throw new Exception('Sencha Model file does not exist.');
 			$senchaModel = (string)file_get_contents(self::$__app.'/'.$fileModel.'.js');
-			
 			// clean comments and unnecessary Ext.define functions
 			$senchaModel = preg_replace("((/\*(.|\n)*?\*/|//(.*))|([ ](?=(?:[^\'\"]|\'[^\'\"]*\')*$)|\t|\n|\r))", '', $senchaModel);
 			$senchaModel = preg_replace("(Ext.define\('[A-Za-z0-9.]*',|\);|\"|proxy(.|\n)*},)", '', $senchaModel); 
@@ -261,7 +261,7 @@ class Matcha
 			// replace single quotes for double quotes
 			// TODO: refine this to make sure doesn't replace apostrophes used in comments. example: don't
 			$senchaModel = preg_replace("(')", '"', $senchaModel);
-			
+
 			$model = (array)json_decode($senchaModel, true);
 			if(!count($model)) throw new Exception("Something whent wrong converting it to an array, a bad lolo.");
 			
