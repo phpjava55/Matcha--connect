@@ -20,6 +20,8 @@
 include_once('MatchaAudit.php');
 include_once('MatchaCUP.php');
 include_once('MatchaErrorHandler.php');
+include_once('MatchaInject.php');
+
 class Matcha
 {
 	 
@@ -36,7 +38,10 @@ class Matcha
 	public static $__app;
 	public static $__audit;
 	
-	
+	/**
+	 * function connect($databaseParameters = array()):
+	 * Method that make the connection to the database
+	 */
 	static public function connect($databaseParameters = array())
 	{
 		try
@@ -46,10 +51,10 @@ class Matcha
 				!isset($databaseParameters['name']) &&
 				!isset($databaseParameters['user']) && 
 				!isset($databaseParameters['pass']) &&
-				!isset($databaseParameters['root'])) 
+				!isset($databaseParameters['app'])) 
 				throw new Exception('These parameters are obligatory: host="database ip or hostname", name="database name", user="database username", pass="database password", app="path of your sencha application"');
 				
-			// Connect using regular PDO Matcha::setup Abstraction layer.
+			// Connect using regular PDO Matcha::connect Abstraction layer.
 			// but make only a connection, not to the database.
 			// and then the database
 			self::$__app = $databaseParameters['app'];
@@ -126,6 +131,11 @@ class Matcha
 		self::$__freeze = (bool)$onoff;
 	}
 	
+	/**
+	 * function audit($onoff = true):
+	 * Method to enable the audit log process.
+	 * This will write a log every time it INSERT, UPDATE, DELETE a record.
+	 */
 	static public function audit($onoff = true)
 	{
 		self::$__audit = (bool)$onoff;
@@ -145,10 +155,13 @@ class Matcha
 			// get the the model of the table from the sencha .js file
 			self::$__senchaModel = self::__getSenchaModel($fileModel);
 			if(!self::$__senchaModel['fields']) throw new Exception('There are no fields set.');
+			
+			// check if the table property is an array, if not get back the array is a table string.
+			$table = (string)(is_array(self::$__senchaModel['table']) ? self::$__senchaModel['table']['name'] : self::$__senchaModel['table']);
 		
 			// verify the existence of the table if it does not exist create it
-			$recordSet = self::$__conn->query("SHOW TABLES LIKE '".self::$__senchaModel['table']['name']."';");
-			if(isset($recordSet)) self::__createTable(self::$__senchaModel['table']['name']);
+			$recordSet = self::$__conn->query("SHOW TABLES LIKE '".$table."';");
+			if(isset($recordSet)) self::__createTable($table);
 			
 			// Remove from the model those fields that are not meant to be stored
 			// on the database-table and remove the id from the workingModel.
@@ -157,7 +170,7 @@ class Matcha
 			foreach($workingModel as $key => $SenchaModel) if(isset($SenchaModel['store']) && $SenchaModel['store'] === false) unset($workingModel[$key]); 
 			
 			// get the table column information and remove the id column
-			$recordSet = self::$__conn->query("SHOW FULL COLUMNS IN ".self::$__senchaModel['table']['name'].";");
+			$recordSet = self::$__conn->query("SHOW FULL COLUMNS IN ".$table.";");
 			$tableColumns = $recordSet->fetchAll(PDO::FETCH_ASSOC);
 			unset($tableColumns[self::__recursiveArraySearch('id', $tableColumns)]);
 			
@@ -247,9 +260,6 @@ class Matcha
 		try
 		{
 			// Getting Sencha model as a namespace
-//			$fileModel = (string)str_replace('App.', '', $fileModel);
-//			$fileModel = str_replace('.', '/', $fileModel);
-//			if(!file_exists(self::$__app.'/'.$fileModel.'.js')) throw new Exception('Sencha Model file does not exist.');
 			$senchaModel = self::__getFileContent($fileModel);
 			// clean comments and unnecessary Ext.define functions
 			$senchaModel = preg_replace("((/\*(.|\n)*?\*/|//(.*))|([ ](?=(?:[^\'\"]|\'[^\'\"]*\')*$)|\t|\n|\r))", '', $senchaModel);
@@ -279,24 +289,44 @@ class Matcha
 		}
 	}
 
-	static private function __getFileContent($file, $type = 'js'){
-		$file = (string)str_replace('App.', '', $file);
-		$file = str_replace('.', '/', $file);
-		if(!file_exists(self::$__app.'/'.$file.'.'.$type)) throw new Exception('Sencha file "'.self::$__app.'/'.$file.'.'.$type.'" not found.');
-		return (string)file_get_contents(self::$__app.'/'.$file.'.'.$type);
+	/**
+	 * function __getFileContent($file, $type = 'js'):
+	 * Load a Sencha Model from .js file
+	 */
+	static private function __getFileContent($file, $type = 'js')
+	{
+		try
+		{
+			$file = (string)str_replace('App.', '', $file);
+			$file = str_replace('.', '/', $file);
+			if(!file_exists(self::$__app.'/'.$file.'.'.$type)) throw new Exception('Sencha file "'.self::$__app.'/'.$file.'.'.$type.'" not found.');
+			return (string)file_get_contents(self::$__app.'/'.$file.'.'.$type);
+		}
+		catch(Exception $e)
+		{
+			MatchaErrorHandler::__errorProcess($e);
+			return false;
+		}
 	}
 
-	static public function __setSenchaModelData($fileData){
+	/**
+	 * function __setSenchaModelData($fileData):
+	 * Method to grab data and insert it into the table.
+	 */
+	static public function __setSenchaModelData($fileData)
+	{
 		try
 		{
 			$dataArray = json_decode(self::__getFileContent($fileData, 'json'), true);
-			foreach($dataArray as $data){
+			foreach($dataArray as $data)
+			{
 				$columns = array_keys($data);
 				$columns = '(`'.implode('`,`',$columns).'`)';
 				$values  = array_values($data);
 				foreach($values as $index => $val) if($val == null) $values[$index] = 'NULL';
 				$values  = '(\''.implode('\',\'',$values).'\')';
-				Matcha::$__conn->query(str_replace("'NULL'",'NULL',"INSERT INTO `".self::$__senchaModel['table']['name']."` $columns VALUES $values"));
+				$table = (string)(is_array(self::$__senchaModel['table']) ? self::$__senchaModel['table']['name'] : self::$__senchaModel['table']);
+				Matcha::$__conn->query(str_replace("'NULL'",'NULL',"INSERT INTO `".$table."` $columns VALUES $values"));
 			}
 			return true;
 		}
@@ -307,127 +337,26 @@ class Matcha
 	}
 
 	/**
-	 * function __getRelationFromModel():
-	 * Method to get the relation from the model if has any.
-	 * TODO: This method have to be removed because Sencha manages relations on JavaScript.
-	 */
-	static private function __getRelationFromModel()
-	{
-		try
-		{
-			// first check if the sencha model object has some value
-			self::$Relation = 'none';
-			if(isset(self::$__senchaModel)) throw new Exception("Sencha Model is not configured.");
-			
-			// check if the model has the associations property 
-			if(isset(self::$__senchaModel['associations']))
-			{
-				self::$Relation = 'associations';
-				// load all the models.
-				foreach(self::$__senchaModel['associations'] as $relation)
-				{ 
-					self::SenchaModel(self::$__senchaModel['associations']);
-					self::$RelationStatement[] = self::__leftJoin(
-					array(
-						'fromId'=>(isset(self::$__senchaModel['associations']['primaryKey']) ? self::$__senchaModel['associations']['foreignKey'] : 'id'),
-						'toId'=>self::$__senchaModel['associations']['foreignKey']
-					));
-				}
-			}
-			
-			// check if the model has the associations property 
-			if(isset(self::$__senchaModel['hasOne']))
-			{
-				self::$Relation = 'hasOne';
-				self::$RelationStatement[] = self::__leftJoin(
-				array(
-					'fromId'=>(isset(self::$__senchaModel['associations']['primaryKey']) ? self::$__senchaModel['associations']['foreignKey'] : 'id'),
-					'toId'=>self::$__senchaModel['associations']['foreignKey']
-				));
-			}
-			
-			// check if the model has the associations property 
-			if(isset(self::$__senchaModel['hasMany']))
-			{
-				self::$Relation = 'hasMany';
-				self::$RelationStatement[] = self::__leftJoin(
-				array(
-					'fromId'=>(isset(self::$__senchaModel['associations']['primaryKey']) ? self::$__senchaModel['associations']['foreignKey'] : 'id'),
-					'toId'=>self::$__senchaModel['associations']['foreignKey']
-				));
-			}
-			
-			// check if the model has the associations property 
-			if(isset(self::$__senchaModel['belongsTo']))
-			{
-				self::$Relation = 'belongsTo';
-				self::$RelationStatement[] = self::__leftJoin(
-				array(
-					'fromId'=>(isset(self::$__senchaModel['associations']['primaryKey']) ? self::$__senchaModel['associations']['foreignKey'] : 'id'),
-					'toId'=>self::$__senchaModel['associations']['foreignKey']
-				));
-			}
-			
-			return true;
-		}
-		catch(Exception $e)
-		{
-			return MatchaErrorHandler::__errorProcess($e);
-		}
-	}
-
-	/**
-	 * function __leftJoin($joinParameters = array()):
-	 * A left join returns all the records in the “left” table (T1) whether they 
-	 * have a match in the right table or not. If, however, they do have a match 
-	 * in the right table – give me the “matching” data from the right table as well. 
-	 * If not – fill in the holes with null.
-	 * TODO: This method have to be removed because Sencha manages relations on JavaScript.
-	 */
-	static private function __leftJoin($joinParameters = array())
-	{
-		return (string)' LEFT JOIN ' . $joinParameters['relateTable'].' ON ('.self::$__senchaModel['table']['name'].'.'.$joinParameters['fromId'].' = '.$joinParameters['relateTable'].'.'.$joinParameters['toId'].') ';
-	}
-	
-	/**
-	 * function __innerJoin($joinParameters = array()):
-	 * An inner join only returns those records that have “matches” in both tables. 
-	 * So for every record returned in T1 – you will also get the record linked by 
-	 * the foreign key in T2. In programming logic – think in terms of AND.
-	 * TODO: This method have to be removed because Sencha manages relations on JavaScript.
-	 */
-	static private function __innerJoin($joinParameters = array())
-	{
-		return (string)' INNER JOIN ' . $joinParameters['relateTable'].' ON ('.self::$__senchaModel['table']['name'].'.'.$joinParameters['fromId'].' = '.$joinParameters['relateTable'].'.'.$joinParameters['toId'].') ';
-	}
-
-	/**
-	 * function __setSenchaModel($senchaModelObject):
-	 * Set the Sencha Model by an object
-	 * Useful to pass the model via an object, instead of using the .js file
-	 * it can be constructed dynamically.
-	 * TODO: Finish me!
-	 */
-	static private function __setSenchaModel($senchaModelObject)
-	{
-		
-	}
-	
-	/**
 	 * function __createTable():
 	 * Method to create a table if does not exist with a BIGINT as id
+	 * also if the sencha model has an array on the table go ahead and
+	 * proccess the table options. 
 	 */
 	static private function __createTable()
 	{
 	    try
 	    {
-			self::$__conn->exec('CREATE TABLE IF NOT EXISTS '.self::$__senchaModel['table']['name'].' (id BIGINT(20) NOT NULL AUTO_INCREMENT PRIMARY KEY);');
-		    /**
-		     * insert data only if table is empty and $__senchaModel['table']['data'] exist
-		     */
-		    $rec = self::$__conn->prepare('SELECT * FROM '.self::$__senchaModel['table']['name']);
-		    if($rec->rowCount() == 0 && isset(self::$__senchaModel['table']['data'])){
-				self::__setSenchaModelData(self::$__senchaModel['table']['data']);
+	    	$table = (string)(is_array(self::$__senchaModel['table']) ? self::$__senchaModel['table']['name'] : self::$__senchaModel['table']);
+			self::$__conn->exec('CREATE TABLE IF NOT EXISTS '.$table.' (id BIGINT(20) NOT NULL AUTO_INCREMENT PRIMARY KEY) '.self::__renderTableOptions().';');
+		    
+			// if $__senchaModel['table']['data'] is set and there is data upload the data to the table. 
+		    if(is_array(self::$__senchaModel['table']['data']))
+			{
+			    $rec = self::$__conn->prepare('SELECT * FROM '.$table);
+			    if($rec->rowCount() == 0 && isset(self::$__senchaModel['table']['data']))
+			    {
+					self::__setSenchaModelData(self::$__senchaModel['table']['data']);
+				}
 			}
 			return true;
 		}
@@ -435,6 +364,22 @@ class Matcha
 		{
 			return MatchaErrorHandler::__errorProcess($e);
 		}
+	}
+	
+	/**
+	 * function __renderTableOptions():
+	 * Render and return a well formed Table Options for the creating table.
+	 */
+	static private function __renderTableOptions()
+	{
+		$tableOptions = (string)'';
+		if(!is_array(self::$__senchaModel['table'])) return false;
+		if( isset(self::$__senchaModel['table']['InnoDB']) ) $tableOptions .= 'ENGINE = '.self::$__senchaModel['table']['InnoDB'].' ';
+		if( isset(self::$__senchaModel['table']['autoIncrement']) ) $tableOptions .= 'AUTO_INCREMENT = '.self::$__senchaModel['table']['autoIncrement'].' ';
+		if( isset(self::$__senchaModel['table']['charset']) ) $tableOptions .= 'CHARACTER SET = '.self::$__senchaModel['table']['charset'].' ';
+		if( isset(self::$__senchaModel['table']['collate']) ) $tableOptions .= 'COLLATE = '.self::$__senchaModel['table']['collate'].' ';
+		if( isset(self::$__senchaModel['table']['comment']) ) $tableOptions .= "COMMENT = '".self::$__senchaModel['table']['comment']."' ";
+		return $tableOptions;
 	}
 	 
 	/**
@@ -462,7 +407,8 @@ class Matcha
 	{
 		try
 		{
-			self::$__conn->query('ALTER TABLE '.self::$__senchaModel['table']['name'].' ADD '.$column['name'].' '.self::__renderColumnSyntax($column) . ';');
+			$table = (string)(is_array(self::$__senchaModel['table']) ? self::$__senchaModel['table']['name'] : self::$__senchaModel['table']);
+			self::$__conn->query('ALTER TABLE '.$table.' ADD '.$column['name'].' '.self::__renderColumnSyntax($column) . ';');
 		}
 		catch(PDOException $e)
 		{
@@ -478,7 +424,8 @@ class Matcha
 	{
 		try
 		{
-			self::$__conn->query('ALTER TABLE '.self::$__senchaModel['table']['name'].' MODIFY '.$SingleParamater['name'].' '.self::__renderColumnSyntax($SingleParamater) . ';');
+			$table = (string)(is_array(self::$__senchaModel['table']) ? self::$__senchaModel['table']['name'] : self::$__senchaModel['table']);
+			self::$__conn->query('ALTER TABLE '.$table.' MODIFY '.$SingleParamater['name'].' '.self::__renderColumnSyntax($SingleParamater) . ';');
 		}
 		catch(PDOException $e)
 		{
@@ -511,7 +458,8 @@ class Matcha
 	{
 		try
 		{
-			self::$__conn->query("ALTER TABLE ".self::$__senchaModel['table']['name']." DROP COLUMN `".$column."`;");
+			$table = (string)(is_array(self::$__senchaModel['table']) ? self::$__senchaModel['table']['name'] : self::$__senchaModel['table']);
+			self::$__conn->query("ALTER TABLE ".$table." DROP COLUMN `".$column."`;");
 		}
 		catch(PDOException $e)
 		{
@@ -592,7 +540,7 @@ class Matcha
 	}
 	
 	/**
-	 * __recursiveArraySearch($needle,$haystack):
+	 * function __recursiveArraySearch($needle,$haystack):
 	 * An recursive array search method
 	 */
 	static private function __recursiveArraySearch($needle,$haystack) 

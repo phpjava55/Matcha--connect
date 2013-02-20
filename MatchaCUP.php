@@ -322,8 +322,7 @@ class MatchaCUP
 						$values = array();
 						$id = $data['id'];
 						unset($data['id']);
-						foreach ($data as $key => $val)
-							$values[] = "`$key`='$val'";
+						foreach ($data as $key => $val) $values[] = "`$key`='$val'";
 						$values = implode(',', $values);
 						$this->rowsAffected = Matcha::$__conn->exec("UPDATE `" . $this->model->table->name . "` SET $values WHERE id='$id'");
 					}
@@ -399,10 +398,7 @@ class MatchaCUP
 	 */
 	private function ArrayToObject(array $array, stdClass $parent = null)
 	{
-		if ($parent === null)
-		{
-			$parent = new stdClass;
-		}
+		if ($parent === null) $parent = new stdClass;
 		foreach ($array as $key => $val)
 		{
 			if (is_array($val))
