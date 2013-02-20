@@ -20,7 +20,9 @@
 include_once('MatchaAudit.php');
 include_once('MatchaCUP.php');
 include_once('MatchaErrorHandler.php');
-include_once('MatchaInject.php');
+
+// Include the Matcha Threads if the PHP Thread class exists
+if(class_exists('Thread')) include_once('MatchaThreads.php');
 
 class Matcha
 {
@@ -173,6 +175,14 @@ class Matcha
 			$recordSet = self::$__conn->query("SHOW FULL COLUMNS IN ".$table.";");
 			$tableColumns = $recordSet->fetchAll(PDO::FETCH_ASSOC);
 			unset($tableColumns[self::__recursiveArraySearch('id', $tableColumns)]);
+
+			// get all the column names of each model			
+			foreach($tableColumns as $column) $columnsTableNames[] = $column['Field'];
+			foreach($workingModel as $column) $columnsSenchaNames[] = $column['name'];
+			
+			// get all the column that are not present in the database-table
+			$diferentCreateColumns = array_diff($columnsSenchaNames, $columnsTableNames);
+			$diferentDropColumns = array_diff($columnsTableNames, $columnsSenchaNames);
 			
 			// check if the table has columns, if not create them.
 			// we start with 1 because the microORM always create the id.
@@ -181,14 +191,15 @@ class Matcha
 				self::__createAllColumns($workingModel);
 				return true;
 			}
-			// Also check if there is difference between the model and the 
-			// database table in terms of number of fields.
-			elseif(count($workingModel) != (count($tableColumns)))
+			// Verify that all the columns does not have difference 
+			// between field names
+			elseif( count($diferentCreateColumns) != 0 && count($diferentDropColumns) != 0)
 			{
-				// remove columns from the table
-				foreach($tableColumns as $column) if( !is_numeric(self::__recursiveArraySearch($column['Field'], $workingModel)) ) self::__dropColumn($column['Field']);
 				// add columns to the table
-				foreach($workingModel as $column) if( !is_numeric(self::__recursiveArraySearch($column['name'], $tableColumns)) ) self::__createColumn($column);
+				foreach($diferentCreateColumns as $key => $column) self::__createColumn($workingModel[self::__recursiveArraySearch($colum[$key], $workingModel)]);
+				// remove columns from the table
+				foreach($diferentDropColumns as $key => $column) self::__dropColumn( $column[$key] );
+				
 			}
 			// if everything else passes, check for differences in the columns.
 			else
@@ -312,25 +323,51 @@ class Matcha
 	/**
 	 * function __setSenchaModelData($fileData):
 	 * Method to grab data and insert it into the table.
+	 * it uses pcntl_fork to do batches of 500 records at the same
+	 * time.
+	 * TODO: Needs more work.
 	 */
 	static public function __setSenchaModelData($fileData)
 	{
 		try
 		{
 			$dataArray = json_decode(self::__getFileContent($fileData, 'json'), true);
-			foreach($dataArray as $data)
+			if(!count($dataArray)) throw new Exception("Something whent wrong converting it to an array, a bad lolo.");
+			$table = (string)(is_array(self::$__senchaModel['table']) ? self::$__senchaModel['table']['name'] : self::$__senchaModel['table']);
+			$columns = 'INSERT INTO `'.$table.'` (`'.implode('`,`', array_keys($dataArray[0]) ).'`) VALUES ';
+			
+			$rowCount = (int)0;
+			$valuesEncapsulation = (string)'';
+			foreach($dataArray as $key => $data)
 			{
-				$columns = array_keys($data);
-				$columns = '(`'.implode('`,`',$columns).'`)';
 				$values  = array_values($data);
 				foreach($values as $index => $val) if($val == null) $values[$index] = 'NULL';
-				$values  = '(\''.implode('\',\'',$values).'\')';
-				$table = (string)(is_array(self::$__senchaModel['table']) ? self::$__senchaModel['table']['name'] : self::$__senchaModel['table']);
-				Matcha::$__conn->query(str_replace("'NULL'",'NULL',"INSERT INTO `".$table."` $columns VALUES $values"));
+				$valuesEncapsulation  .= '(\''.implode('\',\'',$values).'\')';
+				if( $rowCount == 500 || $key == end(array_keys($dataArray)))
+				{
+					// check if Threads PHP Class exists if does not exist 
+					// run the SQL in normal fashion
+					if(class_exists('MatchaThreads'))
+					{
+						MatchaThreads::injectSQLThread($columns.$valuesEncapsulation.';');
+						MatchaThreads::start();
+					}
+					else 
+					{
+						Matcha::$__conn->query($columns.$valuesEncapsulation.';');
+					}
+					$valuesEncapsulation = '';
+					$rowCount = 0;
+				}
+				else 
+				{
+					$valuesEncapsulation .= ', ';
+					$rowCount++;
+				}
 			}
 			return true;
 		}
-		catch(PDOException $e)
+		catch(Exception $e)
 		{
 			return MatchaErrorHandler::__errorProcess($e);
 		}

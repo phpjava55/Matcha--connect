@@ -1,8 +1,8 @@
 <?php
 
  /**
-  * Matcha::connect (Main Class)
-  * MatchaInject.php
+  * Matcha::connect (Threads Class)
+  * MatchaThreads.php
   * 
   * This program is free software: you can redistribute it and/or modify
   * it under the terms of the GNU General Public License as published by
@@ -18,32 +18,25 @@
   * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
  
-class MatchaInjext extends Matcha
+class MatchaThreads extends Thread
 {
-	static public function __InjectSQLForked($sqlStatement)
+	
+	/**
+	 * function injectSQLThread($sqlStatement):
+	 * Method to send BIG SQL injections to the database
+	 * think of it throw and forget injection
+	 */
+	public function injectSQLThread($sqlStatement)
 	{
 		try
 		{
-			switch ($pid = pcntl_fork()) {
-				case -1: // fork failed
-					throw new Exception('Fork failed');
-					break;
-		
-				case 0: // fork success 
-					//.. run the injection
-					break;
-		
-				default:
-					pcntl_waitpid($pid, $status);
-					break;
-		   }
+			Matcha::$__conn->query($sqlStatement);
 		}
-		catch(Exception $e)
+		catch(PDOException $e)
 		{
 			MatchaErrorHandler::__errorProcess($e);
 			return false;
 		}
 	}	
 }
-
  
