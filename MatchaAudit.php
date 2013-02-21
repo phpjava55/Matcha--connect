@@ -19,8 +19,10 @@
  
 class MatchaAudit extends Matcha
 {
-
-    public $logModel;
+    /**
+     * MatchaAudit public and private variables
+     */
+    private $logModel;
     public static $__audit;
 
 	/**
@@ -51,32 +53,6 @@ class MatchaAudit extends Matcha
 		
 		try
 		{
-			//check if the table exist
-			$recordSet = self::$__conn->query("SHOW TABLES LIKE 'log';");
-			if( $recordSet->fetch(PDO::FETCH_ASSOC) ) self::__createTable('log');
-			unset($recordSet);
-
-            // get the table column information and remove the id column
-            // from the log table
-            $recordSet = self::$__conn->query("SHOW FULL COLUMNS IN log;");
-            $tableColumns = $recordSet->fetchAll(PDO::FETCH_ASSOC);
-            unset($tableColumns[self::__recursiveArraySearch('id', $tableColumns)]);
-
-            // prepare the columns from the table and passed array for comparison
-            foreach($tableColumns as $column) $columnsTableNames[] = $column['Field'];
-            foreach($arrayToInsert as $column) $columnsLogModelNames[] = $column['name'];
-
-            // get all the column that are not present in the database-table
-            $differentCreateColumns = array_diff($columnsLogModelNames, $columnsTableNames);
-            $differentDropColumns = array_diff($columnsTableNames, $columnsLogModelNames);
-            if( count($differentCreateColumns) != 0 && count($differentDropColumns) != 0)
-			{
-                // add columns to the table
-                foreach($differentCreateColumns as $key => $column) self::__createColumn($column[$key], 'log');
-                // remove columns from the table
-                foreach($differentDropColumns as $key => $column) self::__dropColumn( $column[$key], 'log' );
-            }
-				
 			// insert the event log
 			$fields = (string)implode(', ', array_keys($eventData));
 			$values = (string)implode(', ', array_values($eventData));
@@ -101,7 +77,38 @@ class MatchaAudit extends Matcha
 
     static public function defineLogModel($logModelArray)
     {
-        self::$logModel = $logModelArray;
-        return true;
+        try
+        {
+            //check if the table exist
+            $recordSet = self::$__conn->query("SHOW TABLES LIKE 'log';");
+            if( $recordSet->fetch(PDO::FETCH_ASSOC) ) self::__createTable('log');
+            unset($recordSet);
+
+            // get the table column information and remove the id column
+            // from the log table
+            $recordSet = self::$__conn->query("SHOW FULL COLUMNS IN log;");
+            $tableColumns = $recordSet->fetchAll(PDO::FETCH_ASSOC);
+            unset($tableColumns[self::__recursiveArraySearch('id', $tableColumns)]);
+
+            // prepare the columns from the table and passed array for comparison
+            foreach($tableColumns as $column) $columnsTableNames[] = $column['Field'];
+            foreach($logModelArray as $column) $columnsLogModelNames[] = $column['name'];
+
+            // get all the column that are not present in the database-table
+            $differentCreateColumns = array_diff($columnsLogModelNames, $columnsTableNames);
+            $differentDropColumns = array_diff($columnsTableNames, $columnsLogModelNames);
+            if( count($differentCreateColumns) != 0 && count($differentDropColumns) != 0)
+            {
+                // add columns to the table
+                foreach($differentCreateColumns as $key => $column) self::__createColumn($logModelArray[$key], 'log');
+                // remove columns from the table
+                foreach($differentDropColumns as $key => $column) self::__dropColumn( $column[$key], 'log' );
+            }
+            return true;
+        }
+        catch(PDOException $e)
+        {
+            return MatchaErrorHandler::__errorProcess($e);
+        }
     }
 }
