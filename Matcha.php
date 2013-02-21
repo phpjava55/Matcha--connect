@@ -148,7 +148,7 @@ class Matcha
 	 * This method will create the table and fields if does not exist in the database
 	 * also this is the brain of the micro ORM.
 	 */
-	static private function __SenchaModel($fileModel)
+	static protected function __SenchaModel($fileModel)
 	{
 		// skip this entire routine if freeze option is true
 		if(self::$__freeze) return true;
@@ -266,7 +266,7 @@ class Matcha
 	 * This method is used by SechaModel method to get all the table and column
 	 * information inside the Sencha Model .js file 
 	 */
-	static private function __getSenchaModel($fileModel)
+	static protected function __getSenchaModel($fileModel)
 	{
 		try
 		{
@@ -304,7 +304,7 @@ class Matcha
 	 * function __getFileContent($file, $type = 'js'):
 	 * Load a Sencha Model from .js file
 	 */
-	static private function __getFileContent($file, $type = 'js')
+	static protected function __getFileContent($file, $type = 'js')
 	{
 		try
 		{
@@ -327,7 +327,7 @@ class Matcha
 	 * time.
 	 * TODO: Needs more work.
 	 */
-	static public function __setSenchaModelData($fileData)
+	static protected function __setSenchaModelData($fileData)
 	{
 		try
 		{
@@ -380,11 +380,18 @@ class Matcha
 	 * also if the sencha model has an array on the table go ahead and
 	 * proccess the table options. 
 	 */
-	static function __createTable()
+	static protected function __createTable($forcedTable = NULL)
 	{
 	    try
 	    {
-	    	$table = (string)(is_array(self::$__senchaModel['table']) ? self::$__senchaModel['table']['name'] : self::$__senchaModel['table']);
+            if($forcedTable)
+            {
+                $table = (string)$forcedTable;
+            }
+            else
+            {
+	    	    $table = (string)(is_array(self::$__senchaModel['table']) ? self::$__senchaModel['table']['name'] : self::$__senchaModel['table']);
+            }
 			self::$__conn->exec('CREATE TABLE IF NOT EXISTS '.$table.' (id BIGINT(20) NOT NULL AUTO_INCREMENT PRIMARY KEY) '.self::__renderTableOptions().';');
 		    
 			// if $__senchaModel['table']['data'] is set and there is data upload the data to the table. 
@@ -408,7 +415,7 @@ class Matcha
 	 * function __renderTableOptions():
 	 * Render and return a well formed Table Options for the creating table.
 	 */
-	static private function __renderTableOptions()
+	static protected function __renderTableOptions()
 	{
 		$tableOptions = (string)'';
 		if(!is_array(self::$__senchaModel['table'])) return false;
@@ -425,7 +432,7 @@ class Matcha
 	 * This method will create all the columns inside the table of the database
 	 * method used by SechaModel method
 	 */
-	static private function __createAllColumns($paramaters = array())
+	static protected function __createAllColumns($paramaters = array())
 	{
 		try
 		{
@@ -441,12 +448,12 @@ class Matcha
 	 * function __createColumn($column = array()):
 	 * Method that will create a single column into the table
 	 */
-	static private function __createColumn($column = array())
+	static protected function __createColumn($column = array(), $table = NULL)
 	{
 		try
 		{
-			$table = (string)(is_array(self::$__senchaModel['table']) ? self::$__senchaModel['table']['name'] : self::$__senchaModel['table']);
-			self::$__conn->query('ALTER TABLE '.$table.' ADD '.$column['name'].' '.self::__renderColumnSyntax($column) . ';');
+            if(!$table) $table = (string)(is_array(self::$__senchaModel['table']) ? self::$__senchaModel['table']['name'] : self::$__senchaModel['table']);
+			self::$__conn->query('alter table '.$table.' add '.$column['name'].' '.self::__rendercolumnsyntax($column) . ';');
 		}
 		catch(PDOException $e)
 		{
@@ -458,12 +465,12 @@ class Matcha
 	 * function __modifyColumn($SingleParamater = array()):
 	 * Method to modify a single column properties
 	 */
-	static private function __modifyColumn($SingleParamater = array())
+	static protected function __modifyColumn($column = array(), $table = NULL)
 	{
 		try
 		{
-			$table = (string)(is_array(self::$__senchaModel['table']) ? self::$__senchaModel['table']['name'] : self::$__senchaModel['table']);
-			self::$__conn->query('ALTER TABLE '.$table.' MODIFY '.$SingleParamater['name'].' '.self::__renderColumnSyntax($SingleParamater) . ';');
+            if(!$table) $table = (string)(is_array(self::$__senchaModel['table']) ? self::$__senchaModel['table']['name'] : self::$__senchaModel['table']);
+			self::$__conn->query('ALTER TABLE '.$table.' MODIFY '.$column['name'].' '.self::__renderColumnSyntax($column) . ';');
 		}
 		catch(PDOException $e)
 		{
@@ -476,7 +483,7 @@ class Matcha
 	 * Method that will create a database, but will create it if
 	 * it does not exist.
 	 */
-	static private function __createDatabase($databaseName)
+	static protected function __createDatabase($databaseName)
 	{
 		try
 		{
@@ -492,11 +499,11 @@ class Matcha
 	 * function __dropColumn($column):
 	 * Method to drop column in a table
 	 */
-	static private function __dropColumn($column)
+	static protected function __dropColumn($column, $table = NULL)
 	{
 		try
 		{
-			$table = (string)(is_array(self::$__senchaModel['table']) ? self::$__senchaModel['table']['name'] : self::$__senchaModel['table']);
+			if(!$table) $table = (string)(is_array(self::$__senchaModel['table']) ? self::$__senchaModel['table']['name'] : self::$__senchaModel['table']);
 			self::$__conn->query("ALTER TABLE ".$table." DROP COLUMN `".$column."`;");
 		}
 		catch(PDOException $e)
@@ -510,7 +517,7 @@ class Matcha
 	 * Method that will render the correct syntax for the addition or modification
 	 * of a column.
 	 */
-	static private function __renderColumnSyntax($column = array())
+	static protected function __renderColumnSyntax($column = array())
 	{
 		// parse some properties on Sencha model.
 		// and do the defaults if properties are not set.
@@ -581,7 +588,7 @@ class Matcha
 	 * function __recursiveArraySearch($needle,$haystack):
 	 * An recursive array search method
 	 */
-	static private function __recursiveArraySearch($needle,$haystack) 
+	static protected function __recursiveArraySearch($needle,$haystack)
 	{
 	    foreach($haystack as $key=>$value) 
 	    {
