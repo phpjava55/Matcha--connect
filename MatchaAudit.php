@@ -72,7 +72,7 @@ class MatchaAudit extends Matcha
      */
     static public function audit($onoff = true)
     {
-        self::$__audit = (bool)$onoff;
+        self::$__audit = $onoff;
     }
 
     static public function defineLogModel($logModelArray)

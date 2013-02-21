@@ -34,7 +34,8 @@ class MatchaErrorHandler extends Matcha
 		//echo '<pre>';
 		//print_r($errorException->getTrace());
 		//echo '</pre>';
-		error_log('Matcha::connect: '.$errorException->getMessage() );
+        $trace = $errorException->getTrace();
+		error_log($trace[0]['class'].'::connect: '.$errorException->getMessage() );
 		return $errorException;
 	}
 
