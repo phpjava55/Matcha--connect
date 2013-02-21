@@ -38,7 +38,6 @@ class Matcha
 	public static $__senchaModel;
 	public static $__conn;
 	public static $__app;
-	public static $__audit;
 	
 	/**
 	 * function connect($databaseParameters = array()):
@@ -131,16 +130,6 @@ class Matcha
 	static public function freeze($onoff = false)
 	{
 		self::$__freeze = (bool)$onoff;
-	}
-	
-	/**
-	 * function audit($onoff = true):
-	 * Method to enable the audit log process.
-	 * This will write a log every time it INSERT, UPDATE, DELETE a record.
-	 */
-	static public function audit($onoff = true)
-	{
-		self::$__audit = (bool)$onoff;
 	}
 	
 	/**

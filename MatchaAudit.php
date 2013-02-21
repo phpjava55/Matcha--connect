@@ -21,6 +21,7 @@ class MatchaAudit extends Matcha
 {
 
     public $logModel;
+    public static $__audit;
 
 	/**
 	 * __auditLog($arrayToInsert = array()):
@@ -87,6 +88,16 @@ class MatchaAudit extends Matcha
 			return MatchaErrorHandler::__errorProcess($e);
 		}
 	}
+
+    /**
+     * function audit($onoff = true):
+     * Method to enable the audit log process.
+     * This will write a log every time it INSERT, UPDATE, DELETE a record.
+     */
+    static public function audit($onoff = true)
+    {
+        self::$__audit = (bool)$onoff;
+    }
 
     static public function defineLogModel($logModelArray)
     {
