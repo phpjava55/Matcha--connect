@@ -196,7 +196,7 @@ class Matcha
 			elseif( count($diferentCreateColumns) != 0 && count($diferentDropColumns) != 0)
 			{
 				// add columns to the table
-				foreach($diferentCreateColumns as $key => $column) self::__createColumn($workingModel[self::__recursiveArraySearch($colum[$key], $workingModel)]);
+				foreach($diferentCreateColumns as $key => $column) self::__createColumn($workingModel[self::__recursiveArraySearch($column[$key], $workingModel)]);
 				// remove columns from the table
 				foreach($diferentDropColumns as $key => $column) self::__dropColumn( $column[$key] );
 				
@@ -336,8 +336,8 @@ class Matcha
 			$table = (string)(is_array(self::$__senchaModel['table']) ? self::$__senchaModel['table']['name'] : self::$__senchaModel['table']);
 			$columns = 'INSERT INTO `'.$table.'` (`'.implode('`,`', array_keys($dataArray[0]) ).'`) VALUES ';
 			
-			$rowCount = (int)0;
-			$valuesEncapsulation = (string)'';
+			$rowCount = 0;
+			$valuesEncapsulation = '';
 			foreach($dataArray as $key => $data)
 			{
 				$values  = array_values($data);
@@ -380,7 +380,7 @@ class Matcha
 	 * also if the sencha model has an array on the table go ahead and
 	 * proccess the table options. 
 	 */
-	static private function __createTable()
+	static function __createTable()
 	{
 	    try
 	    {
