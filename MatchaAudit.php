@@ -64,7 +64,7 @@ class MatchaAudit extends Matcha
 
             // prepare the columns from the table and passed array for comparison
             foreach($tableColumns as $column) $columnsTableNames[] = $column['Field'];
-            foreach($arrayToInsert as $column) $columnsLogModelNames[] = $column[0];
+            foreach($arrayToInsert as $column) $columnsLogModelNames[] = $column['name'];
 
             // get all the column that are not present in the database-table
             $differentCreateColumns = array_diff($columnsLogModelNames, $columnsTableNames);
@@ -72,7 +72,7 @@ class MatchaAudit extends Matcha
             if( count($differentCreateColumns) != 0 && count($differentDropColumns) != 0)
 			{
                 // add columns to the table
-                foreach($differentCreateColumns as $key => $column) self::__createColumn($column, $workingModel)]);
+                foreach($differentCreateColumns as $key => $column) self::__createColumn($column[$key], 'log');
                 // remove columns from the table
                 foreach($differentDropColumns as $key => $column) self::__dropColumn( $column[$key], 'log' );
             }
