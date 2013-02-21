@@ -22,40 +22,22 @@ class MatchaAudit extends Matcha
     /**
      * MatchaAudit public and private variables
      */
-    private $logModel;
-    public static $__audit;
+    public static $__audit = false;
 
 	/**
 	 * __auditLog($arrayToInsert = array()):
 	 * Every store has to be logged into the database.
 	 * Also generate the table if does not exist.
 	 */
-	static protected function __auditLog($arrayToInsert = array())
+	static public function auditSaveLog($arrayToInsert = array())
 	{
 		// if the $__audit is true run the procedure if not skip it
-		if(!Matcha::$__audit) return true;
-
-		// generate the appropriate event log comment
-		$eventLog = (string)"Event triggered but never defined.";
-		if (stristr($sqlStatement, 'INSERT')) $eventLog = 'Record insertion';
-		if (stristr($sqlStatement, 'DELETE')) $eventLog = 'Record deletion';
-		if (stristr($sqlStatement, 'UPDATE')) $eventLog = 'Record update';
-
-		// allocate the event data
-		$eventData['date'] = date('Y-m-d H:i:s', time());
-		$eventData['event'] = $eventLog;
-		$eventData['comments'] = $sqlStatement;
-		$eventData['user'] = $_SESSION['user']['name'];
-		$eventData['checksum'] = crc32($sqlStatement);
-		$eventData['facility'] = $_SESSION['site']['dir'];
-		$eventData['patient_id'] = $_SESSION['patient']['pid'];
-		$eventData['ip'] = $_SESSION['server']['REMOTE_ADDR'];
-		
+		if(!self::$__audit) return false;
 		try
 		{
 			// insert the event log
-			$fields = (string)implode(', ', array_keys($eventData));
-			$values = (string)implode(', ', array_values($eventData));
+			$fields = "`".(string)implode("`, `", array_keys($arrayToInsert))."`";
+			$values = "'".(string)implode("', '", array_values($arrayToInsert))."'";
 			self::$__conn->query('INSERT INTO log ('.$fields.') VALUES ('.$values.');');
 			return self::$__conn->lastInsertId();
 		}
@@ -70,7 +52,7 @@ class MatchaAudit extends Matcha
      * Method to enable the audit log process.
      * This will write a log every time it INSERT, UPDATE, DELETE a record.
      */
-    static public function audit($onoff = true)
+    static public function audit($onoff = TRUE)
     {
         self::$__audit = $onoff;
     }
@@ -81,7 +63,7 @@ class MatchaAudit extends Matcha
         {
             //check if the table exist
             $recordSet = self::$__conn->query("SHOW TABLES LIKE 'log';");
-            if( $recordSet->fetch(PDO::FETCH_ASSOC) ) self::__createTable('log');
+            if( isset($recordSet) ) self::__createTable('log');
             unset($recordSet);
 
             // get the table column information and remove the id column
@@ -91,18 +73,21 @@ class MatchaAudit extends Matcha
             unset($tableColumns[self::__recursiveArraySearch('id', $tableColumns)]);
 
             // prepare the columns from the table and passed array for comparison
+            $columnsTableNames = array();
+            $columnsLogModelNames = array();
             foreach($tableColumns as $column) $columnsTableNames[] = $column['Field'];
             foreach($logModelArray as $column) $columnsLogModelNames[] = $column['name'];
 
             // get all the column that are not present in the database-table
             $differentCreateColumns = array_diff($columnsLogModelNames, $columnsTableNames);
             $differentDropColumns = array_diff($columnsTableNames, $columnsLogModelNames);
-            if( count($differentCreateColumns) != 0 && count($differentDropColumns) != 0)
+
+            if( count($differentCreateColumns) || count($differentDropColumns) )
             {
-                // add columns to the table
+                // create columns on the database
                 foreach($differentCreateColumns as $key => $column) self::__createColumn($logModelArray[$key], 'log');
                 // remove columns from the table
-                foreach($differentDropColumns as $key => $column) self::__dropColumn( $column[$key], 'log' );
+                foreach($differentDropColumns as $column) self::__dropColumn( $column, 'log' );
             }
             return true;
         }
