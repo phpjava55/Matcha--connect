@@ -181,8 +181,8 @@ class Matcha
 			foreach($workingModel as $column) $columnsSenchaNames[] = $column['name'];
 			
 			// get all the column that are not present in the database-table
-			$diferentCreateColumns = array_diff($columnsSenchaNames, $columnsTableNames);
-			$diferentDropColumns = array_diff($columnsTableNames, $columnsSenchaNames);
+			$differentCreateColumns = array_diff($columnsSenchaNames, $columnsTableNames);
+			$differentDropColumns = array_diff($columnsTableNames, $columnsSenchaNames);
 			
 			// check if the table has columns, if not create them.
 			// we start with 1 because the microORM always create the id.
@@ -193,12 +193,12 @@ class Matcha
 			}
 			// Verify that all the columns does not have difference 
 			// between field names
-			elseif( count($diferentCreateColumns) != 0 && count($diferentDropColumns) != 0)
+			elseif( count($differentCreateColumns) != 0 && count($differentDropColumns) != 0)
 			{
 				// add columns to the table
-				foreach($diferentCreateColumns as $key => $column) self::__createColumn($workingModel[self::__recursiveArraySearch($column[$key], $workingModel)]);
+				foreach($differentCreateColumns as $key => $column) self::__createColumn($workingModel[self::__recursiveArraySearch($column[$key], $workingModel)]);
 				// remove columns from the table
-				foreach($diferentDropColumns as $key => $column) self::__dropColumn( $column[$key] );
+				foreach($differentDropColumns as $key => $column) self::__dropColumn( $column[$key] );
 				
 			}
 			// if everything else passes, check for differences in the columns.
