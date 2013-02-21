@@ -57,6 +57,12 @@ class MatchaAudit extends Matcha
         self::$__audit = $onoff;
     }
 
+    /**
+     * function defineLogModel($logModelArray):
+     * Method to define the audit log structure all data and definition will be saved in LOG table.
+     * @param $logModelArray
+     * @return bool or exception
+     */
     static public function defineLogModel($logModelArray)
     {
         try
