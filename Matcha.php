@@ -33,11 +33,26 @@ class Matcha
 	 */
 	public static $Relation;
 	public static $currentRecord;
-	public static $__id;
-	public static $__total;
-	public static $__freeze = false;
-	public static $__conn;
-	public static $__app;
+    /**
+     * @var int
+     */
+    public static $__id;
+    /**
+     * @var int
+     */
+    public static $__total;
+    /**
+     * @var bool
+     */
+    public static $__freeze = false;
+    /**
+     * @var PDO
+     */
+    public static $__conn;
+    /**
+     * @var string
+     */
+    public static $__app;
 	
 	/**
 	 * function connect($databaseParameters = array()):
@@ -59,8 +74,8 @@ class Matcha
 			// but make only a connection, not to the database.
 			// and then the database
 			self::$__app = $databaseParameters['app'];
-			$host = (string)$databaseParameters['host'];
-			$port = (int)(isset($databaseParameters['port']) ? $databaseParameters['port'] : '3306');
+			$host = (string)(isset($databaseParameters['host']) ? $databaseParameters['host'] : 'localhost');
+			$port = (int)(isset($databaseParameters['port'])    ? $databaseParameters['port'] : '3306');
 			$dbName = (string)$databaseParameters['name'];
 			$dbUser = (string)$databaseParameters['user'];
 			$dbPass = (string)$databaseParameters['pass'];
@@ -102,12 +117,12 @@ class Matcha
 	}
 	
 	/**
-	 * freeze($onoff = false):
+	 * freeze($freeze = false):
 	 * freeze the database and tables alteration by the Matcha microORM
 	 */
-	static public function freeze($onoff = false)
+	static public function freeze($freeze = false)
 	{
-		self::$__freeze = (bool)$onoff;
+		self::$__freeze = (bool)$freeze;
 	}
 	
 	/**
@@ -136,6 +151,7 @@ class Matcha
 			    $rec = self::$__conn->prepare('SELECT * FROM '.$table);
 			    if($rec->rowCount() == 0 && isset(MatchaModel::$__senchaModel['table']['data']))
 			    {
+                    // TODO: CHECK THIS!!!!!
 					self::__setSenchaModelData(MatchaModel::$__senchaModel['table']['data']);
 				}
 			}
@@ -155,11 +171,11 @@ class Matcha
 	{
 		$tableOptions = (string)'';
 		if(!is_array(MatchaModel::$__senchaModel['table'])) return false;
-		if( isset(MatchaModel::$__senchaModel['table']['InnoDB']) ) $tableOptions .= 'ENGINE = '.MatchaModel::$__senchaModel['table']['InnoDB'].' ';
-		if( isset(MatchaModel::$__senchaModel['table']['autoIncrement']) ) $tableOptions .= 'AUTO_INCREMENT = '.MatchaModel::$__senchaModel['table']['autoIncrement'].' ';
-		if( isset(MatchaModel::$__senchaModel['table']['charset']) ) $tableOptions .= 'CHARACTER SET = '.MatchaModel::$__senchaModel['table']['charset'].' ';
-		if( isset(MatchaModel::$__senchaModel['table']['collate']) ) $tableOptions .= 'COLLATE = '.MatchaModel::$__senchaModel['table']['collate'].' ';
-		if( isset(MatchaModel::$__senchaModel['table']['comment']) ) $tableOptions .= "COMMENT = '".MatchaModel::$__senchaModel['table']['comment']."' ";
+		if(isset(MatchaModel::$__senchaModel['table']['InnoDB'])) $tableOptions .= 'ENGINE = '.MatchaModel::$__senchaModel['table']['InnoDB'].' ';
+		if(isset(MatchaModel::$__senchaModel['table']['autoIncrement'])) $tableOptions .= 'AUTO_INCREMENT = '.MatchaModel::$__senchaModel['table']['autoIncrement'].' ';
+		if(isset(MatchaModel::$__senchaModel['table']['charset'])) $tableOptions .= 'CHARACTER SET = '.MatchaModel::$__senchaModel['table']['charset'].' ';
+		if(isset(MatchaModel::$__senchaModel['table']['collate'])) $tableOptions .= 'COLLATE = '.MatchaModel::$__senchaModel['table']['collate'].' ';
+		if(isset(MatchaModel::$__senchaModel['table']['comment'])) $tableOptions .= "COMMENT = '".MatchaModel::$__senchaModel['table']['comment']."' ";
 		return $tableOptions;
 	}
 	 
@@ -183,7 +199,7 @@ class Matcha
 		try
 		{
             if(!$table) $table = (string)(is_array(MatchaModel::$__senchaModel['table']) ? MatchaModel::$__senchaModel['table']['name'] : MatchaModel::$__senchaModel['table']);
-			if(self::__rendercolumnsyntax($column) == true) self::$__conn->query('alter table '.$table.' add '.$column['name'].' '.self::__rendercolumnsyntax($column).';');
+			if(self::__rendercolumnsyntax($column) == true) self::$__conn->query('ALTER TABLE '.$table.' ADD '.$column['name'].' '.self::__rendercolumnsyntax($column).';');
             return true;
 		}
 		catch(PDOException $e)
@@ -194,7 +210,7 @@ class Matcha
 	}
 	
 	/**
-	 * function __modifyColumn($SingleParamater = array()):
+	 * function __modifyColumn($column = array(), $table = NULL):
 	 * Method to modify a single column properties
 	 */
 	static protected function __modifyColumn($column = array(), $table = NULL)
@@ -281,63 +297,83 @@ class Matcha
         {
             // parse some properties on Sencha model.
             // and do the defaults if properties are not set.
-            if(isset($column['dataType'])): $columnType = (string)strtoupper($column['dataType']);
-            elseif($column['type'] == 'string' ): $columnType = (string)'VARCHAR';
-            elseif($column['type'] == 'int'):
+            if(isset($column['dataType']))
+            {
+                $columnType = (string)strtoupper($column['dataType']);
+                $errorComment = 'If dataType property is used you have to use the rest of the properties.';
+                if(!isset($column['allowNull'])) throw new Exception('In column '.$column['name'].' - '.$errorComment);
+            }
+            elseif($column['type'] == 'string' )
+            {
+                $columnType = (string)'VARCHAR';
+            }
+            elseif($column['type'] == 'int')
+            {
                 $columnType = (string)'INT';
                 $column['len'] = (isset($column['len']) ? $column['len'] : 11);
-            elseif($column['type'] == 'bool' || $column['type'] == 'boolean'):
+            }
+            elseif($column['type'] == 'bool' || $column['type'] == 'boolean')
+            {
                 $columnType = (string)'TINYINT';
                 $column['len'] = (isset($column['len']) ? $column['len'] : 1);
-            elseif($column['type'] == 'date'): $columnType = (string)'DATETIME';
-            elseif($column['type'] == 'float'): $columnType = (string)'FLOAT';
-            else: return false;
-            endif;
+            }
+            elseif($column['type'] == 'date')
+            {
+                $columnType = (string)'DATETIME';
+            }
+            elseif($column['type'] == 'float')
+            {
+                $columnType = (string)'FLOAT';
+            }
+            else
+            {
+                return false;
+            }
 
             // render the rest of the sql statement
             switch ($columnType)
             {
                 case 'BIT'; case 'TINYINT'; case 'SMALLINT'; case 'MEDIUMINT'; case 'INT'; case 'INTEGER'; case 'BIGINT':
                     return $columnType.
-                    ( isset($column['len']) ? ($column['len'] ? '('.$column['len'].') ' : '') : '').
-                    ( isset($column['defaultValue']) ? (is_numeric($column['defaultValue']) && is_string($column['defaultValue']) ? "DEFAULT '".$column['defaultValue']."' " : '') : '').
-                    ( isset($column['comment']) ? ($column['comment'] ? "COMMENT '".$column['comment']."' " : '') : '' ).
-                    ( isset($column['allowNull']) ? ($column['allowNull'] ? 'NOT NULL ' : '') : '' ).
-                    ( isset($column['autoIncrement']) ? ($column['autoIncrement'] ? 'AUTO_INCREMENT ' : '') : '' ).
-                    ( isset($column['primaryKey']) ? ($column['primaryKey'] ? 'PRIMARY KEY ' : '') : '' );
+                    (isset($column['len']) ? ($column['len'] ? '('.$column['len'].') ' : '') : '').
+                    (isset($column['defaultValue']) ? (is_numeric($column['defaultValue']) && is_string($column['defaultValue']) ? "DEFAULT '".$column['defaultValue']."' " : '') : '').
+                    (isset($column['comment']) ? ($column['comment'] ? "COMMENT '".$column['comment']."' " : '') : '').
+                    (isset($column['allowNull']) ? ($column['allowNull'] ? 'NOT NULL ' : '') : '').
+                    (isset($column['autoIncrement']) ? ($column['autoIncrement'] ? 'AUTO_INCREMENT ' : '') : '').
+                    (isset($column['primaryKey']) ? ($column['primaryKey'] ? 'PRIMARY KEY ' : '') : '');
                     break;
                 case 'REAL'; case 'DOUBLE'; case 'FLOAT'; case 'DECIMAL'; case 'NUMERIC':
                     return $columnType.
-                    ( isset($column['len']) ? ($column['len'] ? '('.$column['len'].')' : '(10,2)') : '(10,2)').
-                    ( isset($column['defaultValue']) ? (is_numeric($column['defaultValue']) && is_string($column['defaultValue']) ? "DEFAULT '".$column['defaultValue']."' " : '') : '').
-                    ( isset($column['comment']) ? ($column['comment'] ? "COMMENT '".$column['comment']."' " : '') : '' ).
-                    ( isset($column['allowNull']) ? ($column['allowNull'] ? 'NOT NULL ' : '') : '' ).
-                    ( isset($column['autoIncrement']) ? ($column['autoIncrement'] ? 'AUTO_INCREMENT ' : '') : '' ).
-                    ( isset($column['primaryKey']) ? ($column['primaryKey'] ? 'PRIMARY KEY ' : '') : '' );
+                    (isset($column['len']) ? ($column['len'] ? '('.$column['len'].')' : '(10,2)') : '(10,2)').
+                    (isset($column['defaultValue']) ? (is_numeric($column['defaultValue']) && is_string($column['defaultValue']) ? "DEFAULT '".$column['defaultValue']."' " : '') : '').
+                    (isset($column['comment']) ? ($column['comment'] ? "COMMENT '".$column['comment']."' " : '') : '').
+                    (isset($column['allowNull']) ? ($column['allowNull'] ? 'NOT NULL ' : '') : '' ).
+                    (isset($column['autoIncrement']) ? ($column['autoIncrement'] ? 'AUTO_INCREMENT ' : '') : '').
+                    (isset($column['primaryKey']) ? ($column['primaryKey'] ? 'PRIMARY KEY ' : '') : '');
                     break;
                 case 'DATE'; case 'TIME'; case 'TIMESTAMP'; case 'DATETIME'; case 'YEAR':
                     return $columnType.' '.
-                    ( isset($column['defaultValue']) ? (is_numeric($column['defaultValue']) && is_string($column['defaultValue']) ? "DEFAULT '".$column['defaultValue']."' " : '') : '').
-                    ( isset($column['comment']) ? ($column['comment'] ? "COMMENT '".$column['comment']."' " : '') : '' ).
-                    ( isset($column['allowNull']) ? ($column['allowNull'] ? 'NOT NULL ' : '') : '' );
+                    (isset($column['defaultValue']) ? (is_numeric($column['defaultValue']) && is_string($column['defaultValue']) ? "DEFAULT '".$column['defaultValue']."' " : '') : '').
+                    (isset($column['comment']) ? ($column['comment'] ? "COMMENT '".$column['comment']."' " : '') : '').
+                    (isset($column['allowNull']) ? ($column['allowNull'] ? 'NOT NULL ' : '') : '');
                     break;
                 case 'CHAR'; case 'VARCHAR':
                     return $columnType.' '.
-                    ( isset($column['len']) ? ($column['len'] ? '('.$column['len'].') ' : '(255)') : '(255)').
-                    ( isset($column['defaultValue']) ? (is_numeric($column['defaultValue']) && is_string($column['defaultValue']) ? "DEFAULT '".$column['defaultValue']."' " : '') : '').
-                    ( isset($column['comment']) ? ($column['comment'] ? "COMMENT '".$column['comment']."' " : '') : '' ).
-                    ( isset($column['allowNull']) ? ($column['allowNull'] ? 'NOT NULL ' : '') : '' );
+                    (isset($column['len']) ? ($column['len'] ? '('.$column['len'].') ' : '(255)') : '(255)').
+                    (isset($column['defaultValue']) ? (is_numeric($column['defaultValue']) && is_string($column['defaultValue']) ? "DEFAULT '".$column['defaultValue']."' " : '') : '').
+                    (isset($column['comment']) ? ($column['comment'] ? "COMMENT '".$column['comment']."' " : '') : '').
+                    (isset($column['allowNull']) ? ($column['allowNull'] ? 'NOT NULL ' : '') : '');
                     break;
                 case 'BINARY'; case 'VARBINARY':
                     return $columnType.' '.
-                    ( isset($column['len']) ? ($column['len'] ? '('.$column['len'].') ' : '') : '').
-                    ( isset($column['allowNull']) ? ($column['allowNull'] ? '' : 'NOT NULL ') : '' ).
-                    ( isset($column['comment']) ? ($column['comment'] ? "COMMENT '".$column['comment']."'" : '') : '' );
+                    (isset($column['len']) ? ($column['len'] ? '('.$column['len'].') ' : '') : '').
+                    (isset($column['allowNull']) ? ($column['allowNull'] ? '' : 'NOT NULL ') : '').
+                    (isset($column['comment']) ? ($column['comment'] ? "COMMENT '".$column['comment']."'" : '') : '');
                     break;
                 case 'TINYBLOB'; case 'BLOB'; case 'MEDIUMBLOB'; case 'LONGBLOB'; case 'TINYTEXT'; case 'TEXT'; case 'MEDIUMTEXT'; case 'LONGTEXT':
                     return $columnType.' '.
-                    ( isset($column['allowNull']) ? ($column['allowNull'] ? 'NOT NULL ' : '') : '' ).
-                    ( isset($column['comment']) ? ($column['comment'] ? "COMMENT '".$column['comment']."'" : '') : '' );
+                    (isset($column['allowNull']) ? ($column['allowNull'] ? 'NOT NULL ' : '') : '').
+                    (isset($column['comment']) ? ($column['comment'] ? "COMMENT '".$column['comment']."'" : '') : '');
                     break;
                 default:
                     throw new Exception('No data type is defined.');

@@ -19,33 +19,15 @@
 class MatchaCUP
 {
 	/**
-	 * @var array Model array
+	 * Variables that MatchaCUP uses.
 	 */
 	private $model;
-	/**
-	 * @var
-	 */
 	private $table;
-	/**
-	 * @var
-	 */
 	private $primaryKey;
-	/**
-	 * @var string
-	 */
 	private $nolimitsql = '';
-	/**
-	 * @var string
-	 */
 	private $sql = '';
-	/**
-	 * @var
-	 */
 	public $rowsAffected;
-	/**
-	 * @var
-	 */
-	public $lastInsertId;
+	public $lastInsertId; // There is already a lastInsertId in Matcha::Class
 
 	/**
 	 * Method to set PDO statement.
@@ -53,19 +35,13 @@ class MatchaCUP
 	 * handle the request using sencha standards. If not then
 	 * here are few examples.
 	 *
-	 * $users->load()->all();                                    = SELECT * FROM
-	 * users WHERE id = 5
-	 * $users->load(5)->all();                                   = SELECT * FROM
-	 * users WHERE id = 5
-	 * $users->load(5, array('name','last'))->all();             = SELECT name, last
-	 * FROM users WHERE id = 5
-	 * $users->load(array('name'=>'joe'))->all();                = SELECT * FROM
-	 * users WHERE name = joe
-	 * $users->load(array('name'=>'joe'), array('id'))->all();   = SELECT id FROM
-	 * users WHERE name = joe
+	 * $users->load()->all();                                    = SELECT * FROM users WHERE id = 5
+	 * $users->load(5)->all();                                   = SELECT * FROM users WHERE id = 5
+	 * $users->load(5, array('name','last'))->all();             = SELECT name, last FROM users WHERE id = 5
+	 * $users->load(array('name'=>'joe'))->all();                = SELECT * FROM users WHERE name = joe
+	 * $users->load(array('name'=>'joe'), array('id'))->all();   = SELECT id FROM users WHERE name = joe
 	 * OR
-	 * $users->load($params)->all()  $params = to object || array sent by sencha
-	 * store
+	 * $users->load($params)->all()  $params = to object || array sent by sencha store
 	 *
 	 * @param null $where
 	 * @param null $columns
@@ -116,10 +92,8 @@ class MatchaCUP
 				if (isset($where->limit) || isset($where->start))
 				{
 					$limits = array();
-					if (isset($where->start))
-						$limits[] = $where->start;
-					if (isset($where->limit))
-						$limits[] = $where->limit;
+					if (isset($where->start)) $limits[] = $where->start;
+					if (isset($where->limit)) $limits[] = $where->limit;
 					$limits = 'LIMIT ' . implode(',', $limits);
 				}
 
@@ -154,8 +128,8 @@ class MatchaCUP
 					}
 					$wherex = 'WHERE ' . implode(' AND ', $wherex);
 				}
-				$this->nolimitsql = "SELECT * FROM `" . $this->table . "` $groupx $wherex $sortx";
-				$this->sql = "SELECT * FROM `" . $this->table . "` $groupx $wherex $sortx $limits";
+				$this->nolimitsql   = "SELECT * FROM `" . $this->table . "` $groupx $wherex $sortx";
+				$this->sql          = "SELECT * FROM `" . $this->table . "` $groupx $wherex $sortx $limits";
 			}
 			return $this;
 		}
@@ -198,6 +172,7 @@ class MatchaCUP
 	}
 
 	/**
+     * return an specific column
 	 * @return mixed
 	 */
 	public function column()
@@ -278,6 +253,9 @@ class MatchaCUP
 	 */
 	public function save($record)
 	{
+//        echo '<pre>';
+//        print_r($record);
+//        echo '<pre>';
 		try
         {
 			if (is_object($record))
@@ -398,7 +376,13 @@ class MatchaCUP
 		return $whereStr;
 	}
 
-	private function buildInsetSqlStatement($data)
+    /**
+     * function buildInsetSqlStatement($data):
+     * Method to build the insert sql statement
+     * @param $data
+     * @return mixed
+     */
+    private function buildInsetSqlStatement($data)
     {
 		$data = $this->parseValues($data);
 
@@ -410,7 +394,13 @@ class MatchaCUP
 		return str_replace("'NULL'",'NULL',$sql);
 	}
 
-	private function buildUpdateSqlStatement($data)
+    /**
+     * function buildUpdateSqlStatement($data):
+     * Method to build the update sql statement
+     * @param $data
+     * @return mixed
+     */
+    private function buildUpdateSqlStatement($data)
     {
 		$id = $data[$this->primaryKey];
 		unset($data[$this->primaryKey]);
@@ -423,7 +413,13 @@ class MatchaCUP
 		return str_replace("'NULL'",'NULL',$sql);
 	}
 
-	private function parseValues($data)
+    /**
+     * function parseValues($data):
+     * Parse the data and if some values met the type correct them.
+     * @param $data
+     * @return array
+     */
+    private function parseValues($data)
     {
 		$columns = array_keys($data);
 		$values = array_values($data);
