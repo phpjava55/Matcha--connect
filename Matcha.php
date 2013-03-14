@@ -21,6 +21,7 @@ include_once('MatchaCUP.php');
 include_once('MatchaErrorHandler.php');
 include_once('MatchaModel.php');
 include_once('MatchaUtils.php');
+include_once('MatchaMemory.php');
 
 // Include the Matcha Threads if the PHP Thread class exists
 if(class_exists('Thread')) include_once('MatchaThreads.php');
@@ -181,7 +182,7 @@ class Matcha
 
         // set the auto_increment, if is not set the table property to 1.
 		if(isset(MatchaModel::$__senchaModel['table']['autoIncrement'])): $tableOptions .= 'AUTO_INCREMENT = '.MatchaModel::$__senchaModel['table']['autoIncrement'].' ';
-        else: $tableOptions .= 'AUTO_INCREMENT = 1';
+        else: $tableOptions .= 'AUTO_INCREMENT = 1 ';
         endif;
 
         // set character set of the table, if is not set the default
@@ -269,7 +270,7 @@ class Matcha
 	}
 	
 	/**
-	 * function __dropColumn($column):
+	 * function __dropColumn($column, $table = NULL):
 	 * Method to drop column in a table
 	 */
 	static protected function __dropColumn($column, $table = NULL)
@@ -407,5 +408,5 @@ class Matcha
             return false;
         }
 	}
-	
+
 }
