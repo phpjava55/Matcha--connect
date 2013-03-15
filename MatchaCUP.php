@@ -298,8 +298,20 @@ class MatchaCUP
                         $sql = $this->buildInsetSqlStatement($data);
 						$this->rowsAffected = Matcha::$__conn->exec($sql);
 						$data[$this->primaryKey] = $this->lastInsertId = Matcha::$__conn->lastInsertId();
+
                         if(method_exists(MatchaAudit::$hookClass, MatchaAudit::$hookMethod) && MatchaAudit::$__audit)
-                            call_user_func_array(array(MatchaAudit::$hookClass, MatchaAudit::$hookMethod), array(array('insertId'=>$this->lastInsertId, 'crc32'=>crc32($sql), 'event'=>'INSERT', 'sql'=>addslashes($sql))));
+                            call_user_func_array(
+                                array(
+                                    MatchaAudit::$hookClass,
+                                    MatchaAudit::$hookMethod),
+                                array(
+                                    array('insertId'=>$this->lastInsertId,
+                                        'crc32'=>crc32($sql),
+                                        'event'=>'INSERT',
+                                        'sql'=>addslashes($sql)
+                                    )
+                                )
+                            );
 					}
 					else
 					{
@@ -431,8 +443,8 @@ class MatchaCUP
 	private function buildUpdateSqlStatement($data, $where = array())
 	{
 		if(!empty($where)){
-			$primaryKey      = array_keys($where)[0];
-			$primaryKeyValue = array_values($where)[0];
+			$primaryKey      = current(array_keys($where));
+			$primaryKeyValue = current(array_values($where));
 		}else{
 			$primaryKey      = $this->primaryKey;
 			$primaryKeyValue = $data[$this->primaryKey];;
