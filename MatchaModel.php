@@ -33,6 +33,9 @@ class MatchaModel extends Matcha
      * function SenchaModel($fileModel):
      * This method will create the table and fields if does not exist in the database
      * also this is the brain of the micro ORM.
+     *
+     * This method needs rework, this method has to be the brain!
+     *
      */
     static public function __SenchaModel($fileModel)
     {
@@ -42,20 +45,22 @@ class MatchaModel extends Matcha
         {
 	        self::$__senchaModel = array();
 
-            // check the difference in dates, if there are equal go ahead and load the model from memory
+            // check the difference in dates of the Sencha model file and the stored Sencha model on the server memory,
+            // if there are equal go ahead and load the model from memory and quit the procedure
             if(self::__getFileModifyDate($fileModel) == MatchaMemory::__getSenchaModelLastChange($fileModel))
             {
                 self::$__senchaModel = MatchaMemory::__getModelFromMemory($fileModel);
                 return true;
             }
 
-            // get the the model of the table from the sencha .js file
+            // get the model of the table from the sencha .js file
             self::$__senchaModel = self::__getSenchaModel($fileModel);
             if(!self::$__senchaModel['fields']) return false;
 
+            // Copy the table ID from the idProperty if the idProperty is undefined use "id" instead.
             self::$tableId = isset(self::$__senchaModel['idProperty']) ? self::$__senchaModel['idProperty'] : 'id';
 
-            // check if the table property is an array, if not get back the array is a table string.
+            // check if the table property is an array, if not return the array is a table string.
             $table = (string)(is_array(self::$__senchaModel['table']) ? self::$__senchaModel['table']['name'] : self::$__senchaModel['table']);
 
             // verify the existence of the table if it does not exist create it
@@ -71,8 +76,7 @@ class MatchaModel extends Matcha
             foreach($workingModel as $key => $SenchaModel) if(isset($SenchaModel['store']) && $SenchaModel['store'] === false) unset($workingModel[$key]);
 
             // get the table column information and remove the id column
-            $recordSet = self::$__conn->query("SHOW FULL COLUMNS IN ".$table.";");
-            $tableColumns = $recordSet->fetchAll(PDO::FETCH_ASSOC);
+            $tableColumns = self::$__conn->query("SHOW FULL COLUMNS IN ".$table.";")->fetchAll(PDO::FETCH_ASSOC);
             unset($tableColumns[MatchaUtils::__recursiveArraySearch(self::$tableId, $tableColumns)]);
 
             $columnsTableNames = array();
@@ -87,7 +91,6 @@ class MatchaModel extends Matcha
             $differentDropColumns = array_diff($columnsTableNames, $columnsSenchaNames);
 
             // unset the id field from both arrays
-            unset($differentCreateColumns[MatchaUtils::__recursiveArraySearch('id', $differentCreateColumns)]);
             unset($differentCreateColumns[MatchaUtils::__recursiveArraySearch('id', $differentCreateColumns)]);
             unset($workingModel[MatchaUtils::__recursiveArraySearch('id', $workingModel)]);
 
@@ -194,9 +197,10 @@ class MatchaModel extends Matcha
             preg_match('/Ext\.define\([a-zA-Z0-9\',. ]+(?P<extmodel>.+)\);/si', $jsSenchaModel, $match);
             $jsSenchaModel = $match['extmodel'];
             // clean comments and unnecessary Ext.define functions
-            $jsSenchaModel = preg_replace("((/\*(.|\n)*?\*/|//(.*))|([ ](?=(?:[^\'\"]|\'[^\'\"]*\')*$)|\t|\n|\r))", '', $jsSenchaModel);
+            $jsSenchaModel = preg_replace('/(?P<spaces>[\t\n\r ])|(?P<sencha>[\d(),.:;A-Za-z{}]+?)|(?P<properties>\'[^\n\r\']+\')/', '$2$3', $jsSenchaModel);
             // add quotes to proxy Ext.Direct functions
             $jsSenchaModel = preg_replace("/(read|create|update|destroy)([:])((\w|\.)*)/", "$1$2'$3'", $jsSenchaModel);
+
             // wrap with double quotes to all the properties
             $jsSenchaModel = preg_replace('/(,|\{)(\w*):/', "$1\"$2\":", $jsSenchaModel);
             // wrap with double quotes float numbers
