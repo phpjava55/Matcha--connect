@@ -33,6 +33,12 @@ class MatchaUtils extends Matcha
         return $tabs;
     }
 
+    static public function PHPMailer()
+    {
+        require_once('plugins/PHPMailer/class.phpmailer.php');
+        return new PHPMailer();
+    }
+
     /**
      * function Carbon():
      * Method to enable the use of Carbon class Plugin
@@ -40,6 +46,7 @@ class MatchaUtils extends Matcha
      */
     static public function Carbon()
     {
+        require_once('plugins/Carbon/Carbon.php');
         return new Carbon();
     }
 
@@ -51,6 +58,7 @@ class MatchaUtils extends Matcha
      */
     static public function BrowserOS()
     {
+        require_once('plugins/BrowserDetect/Browser.php');
         return new Browser();
     }
 
@@ -63,6 +71,7 @@ class MatchaUtils extends Matcha
      */
     static public function ChromePHP()
     {
+        require_once('plugins/ChromePHP/ChromePhp.php');
         return ChromePhp()->getInstance();
     }
 
@@ -75,6 +84,7 @@ class MatchaUtils extends Matcha
      */
     static public function FirePHP()
     {
+        require_once('plugins/FirePHPCore-0.3.2/FirePHP.class.php');
         return new FirePHP();
     }
 
